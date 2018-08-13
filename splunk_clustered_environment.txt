@@ -1,0 +1,103 @@
+
+./splunk disable boot-start
+./splunk stop
+
+dpkg -r splunkforwarder
+rm -rf splunk
+
+
+setting deployment server/clients
+
+splunk set deploy-poll <IP_address/hostname>:<management_port>
+
+./splunk set deploy-poll 35.227.120.205:8089
+
+splunk restart
+
+
+Multisite indexer cluster
+
+Configure the master node
+Here is an example of a multisite configuration for a master mode:
+
+splunk edit cluster-config -mode master -multisite true -available_sites site1,site2 -site site1 -site_replication_factor origin:2,total:3 -site_search_factor origin:1,total:2
+
+splunk restart
+
+
+Configure the peer nodes
+To configure a peer node in a multisite cluster, you set a site attribute. All other configuration settings are identical to a peer in a single-site cluster.
+
+Here is an example configuration for a multisite peer node:
+
+splunk edit cluster-config -mode slave -site site1 -master_uri https://10.160.31.200:8089 -replication_port 9887 
+
+splunk restart
+
+
+
+Adding forwarders to indexers
+
+./splunk add forward-server 35.196.93.184:9997
+./splunk add forward-server 35.231.22.245:9997
+
+
+
+download splunk to /tmp folder
+
+wget -O splunk-7.1.2-a0c72a66db66-linux-2.6-amd64.deb 'https://www.splunk.com/bin/splunk/DownloadActivityServlet?architecture=x86_64&platform=linux&version=7.1.2&product=splunk&filename=splunk-7.1.2-a0c72a66db66-linux-2.6-amd64.deb&wget=true'
+
+
+chmod 744 splunk-7.1.2-a0c72a66db66-linux-2.6-amd64.deb
+
+dpkg -i splunkdwonloadblefile
+
+./splunk start --accept-license
+./splunk enable boot-start
+
+export SPLUNK_HOME="/opt/splunk"
+
+
+
+run on search head member to get added to cluster
+
+splunk init shcluster-config -auth admin:abcdefgh -mgmt_uri https://35.227.120.205:8089 -replication_port 8080 -replication_factor 2 -secret shcluster -shcluster_label searchheadcluster
+
+splunk restart 
+
+Run on deplyoer to push apps
+
+install apps on /opt/splunk/etc/shcluster/apps/(yourapp which needs to be edited)
+
+./splunk apply shcluster-bundle -target https://35.237.72.25:8089 -auth admin:abcdefgh
+
+
+working
+
+
+splunk init shcluster-config -auth admin:abcdefgh -mgmt_uri https://35.237.72.25:8089 -replication_port 8080 -replication_factor 2 -conf_deploy_fetch_url https://35.227.120.205:8089 -secret shcluster -shcluster_label searchheadcluster
+
+splunk init shcluster-config -auth admin:abcdefgh -mgmt_uri https://35.190.188.80:8089 -replication_port 8080 -replication_factor 2 -conf_deploy_fetch_url https://35.227.120.205:8089 -secret shcluster -shcluster_label searchheadcluster
+
+
+
+splunk bootstrap shcluster-captain -servers_list "https://35.237.72.25:8089,https://35.190.188.80:8089" -auth admin:abcdefgh
+
+
+
+
+adding sh to indexer cluster
+
+splunk edit cluster-config -mode searchhead -site site1 -master_uri https://35.196.93.184:8089 -secret indexer 
+splunk edit cluster-config -mode searchhead -site site2 -master_uri https://35.196.93.184:8089 -secret indexer
+
+
+[general]
+site = site1
+
+[clustering]
+multisite = true
+master_uri = https://35.237.111.213:8089
+mode = searchhead
+pass4SymmKey = shcluster
+
